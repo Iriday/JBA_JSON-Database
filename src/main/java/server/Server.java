@@ -17,16 +17,17 @@ public class Server {
     public void run() {
         try (var serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server started!");
+            while (true) {
+                try (var socket = serverSocket.accept();
+                     var inStream = new DataInputStream(socket.getInputStream());
+                     var outStream = new DataOutputStream(socket.getOutputStream())) {
 
-            try (var socket = serverSocket.accept();
-                 var inStream = new DataInputStream(socket.getInputStream());
-                 var outStream = new DataOutputStream(socket.getOutputStream())) {
-
-                String clientRequest = inStream.readUTF();
-                System.out.println("Received: " + clientRequest);
-                String resultFromDb = executeCommand(clientRequest.split("\\s+", 3), database);
-                outStream.writeUTF(resultFromDb);
-                System.out.println("Sent: " + resultFromDb);
+                    String clientRequest = inStream.readUTF();
+                    System.out.println("Received: " + clientRequest);
+                    String resultFromDb = executeCommand(clientRequest.split("\\s+", 3), database);
+                    outStream.writeUTF(resultFromDb);
+                    System.out.println("Sent: " + resultFromDb);
+                }
             }
         } catch (IOException e) {
             e.printStackTrace();
