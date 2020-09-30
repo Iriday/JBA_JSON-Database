@@ -2,6 +2,6 @@ package server;
 
 public class Main {
     public static void main(String[] args) {
-        new Server().run(9889);
+        new Server(9889, 1000).run();
     }
 }

@@ -6,21 +6,39 @@ import java.io.IOException;
 import java.net.ServerSocket;
 
 public class Server {
-    public void run(int port) {
-        try (var serverSocket = new ServerSocket(port)) {
+    public final int PORT;
+    private final Database database;
+
+    public Server(int PORT, int dbSize) {
+        this.PORT = PORT;
+        this.database = new Database(dbSize);
+    }
+
+    public void run() {
+        try (var serverSocket = new ServerSocket(PORT)) {
             System.out.println("Server started!");
 
             try (var socket = serverSocket.accept();
-                 var input = new DataInputStream(socket.getInputStream());
-                 var output = new DataOutputStream(socket.getOutputStream())) {
+                 var inStream = new DataInputStream(socket.getInputStream());
+                 var outStream = new DataOutputStream(socket.getOutputStream())) {
 
-                System.out.println("Received: " + input.readUTF());
-                String data = "A record # 999 was sent!";
-                output.writeUTF(data);
-                System.out.println("Sent: " + data);
+                String clientRequest = inStream.readUTF();
+                System.out.println("Received: " + clientRequest);
+                String resultFromDb = executeCommand(clientRequest.split("\\s+", 3), database);
+                outStream.writeUTF(resultFromDb);
+                System.out.println("Sent: " + resultFromDb);
             }
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    public static String executeCommand(String[] command, Database database) {
+        switch (command[0].toLowerCase()) {
+            case "set": return database.set(Integer.parseInt(command[1]), command[2]);
+            case "get": return database.get(Integer.parseInt(command[1]));
+            case "delete": return database.delete(Integer.parseInt(command[1]));
+            default: return "Error: unknown command";
         }
     }
 }
