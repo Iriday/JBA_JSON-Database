@@ -49,7 +49,39 @@ public class TestJsonDatabase {
         System.out.println("Db data after tests:\n" + field.get(db));
     }
 
+    @Test
+    public void testExecuteJson() {
+        final JsonDatabase db = new JsonDatabase();
+
+        assertEquals(db.executeJson(toJson("type", "get", "key", "qwerty")), ERROR_NO_SUCH_KEY);
+        assertEquals(db.executeJson(toJson("type", "set", "key", "key a", "value", "the first value")), OK);
+        assertEquals(db.executeJson(toJson("type", "set", "key", "key a", "value", "the first value")), OK);
+        assertEquals(db.executeJson(toJson("type", "get", "key", "key a")), toJson("response", "OK", "value", "the first value"));
+        assertEquals(db.executeJson(toJson("type", "delete", "key", "key a")), OK);
+        assertEquals(db.executeJson(toJson("type", "delete", "key", "key a")), ERROR_NO_SUCH_KEY);
+
+        assertEquals(db.executeJson(""), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson(null), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson("asdf"), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson("{a:}"), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson("{"), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson(toJson("type", "get")), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson(toJson("type", "get", "key", "999", "value", "abc")), ERROR_INCORRECT_JSON);
+        assertEquals(db.executeJson(toJson("type", "unknown", "key", "1")), ERROR_INCORRECT_JSON);
+    }
+
     public static String formatGet(String v) {
         return "{\"response\":\"OK\",\"value\":\"" + v + "\"}";
+    }
+
+    /**
+     * Example: input: "key1", "value1", "key2", "value2"; output: {"key1":"value1","key2":"value2"}
+     */
+    public static String toJson(String... args) {
+        var jo = new JsonObject();
+        for (int i = 0; i < args.length; i += 2) {
+            jo.addProperty(args[i], args[i + 1]);
+        }
+        return jo.toString();
     }
 }
