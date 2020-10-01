@@ -7,11 +7,11 @@ import java.net.ServerSocket;
 
 public class Server {
     public final int PORT;
-    private final Database database;
+    private final JsonDatabase database;
 
-    public Server(int PORT, int dbSize) {
+    public Server(int PORT) {
         this.PORT = PORT;
-        this.database = new Database(dbSize);
+        this.database = new JsonDatabase();
     }
 
     public void run() {
@@ -22,24 +22,15 @@ public class Server {
                      var inStream = new DataInputStream(socket.getInputStream());
                      var outStream = new DataOutputStream(socket.getOutputStream())) {
 
-                    String clientRequest = inStream.readUTF();
-                    System.out.println("Received: " + clientRequest);
-                    String resultFromDb = executeCommand(clientRequest.split("\\s+", 3), database);
+                    String clientRequestJSON = inStream.readUTF();
+                    System.out.println("Received: " + clientRequestJSON);
+                    String resultFromDb = database.executeJson(clientRequestJSON);
                     outStream.writeUTF(resultFromDb);
                     System.out.println("Sent: " + resultFromDb);
                 }
             }
         } catch (IOException e) {
             e.printStackTrace();
-        }
-    }
-
-    public static String executeCommand(String[] command, Database database) {
-        switch (command[0].toLowerCase()) {
-            case "set": return database.set(Integer.parseInt(command[1]), command[2]);
-            case "get": return database.get(Integer.parseInt(command[1]));
-            case "delete": return database.delete(Integer.parseInt(command[1]));
-            default: return "Error: unknown command";
         }
     }
 }
