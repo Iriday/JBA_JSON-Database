@@ -1,17 +1,35 @@
 package server;
 
 import com.google.gson.JsonObject;
+import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static server.JsonDatabase.*;
 
+import java.io.IOException;
 import java.lang.reflect.*;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class TestJsonDatabase {
+    public final static String TEST_DB_PATH = "src/main/java/server/data/test_db.json";
+    private JsonDatabase db;
+
+    @BeforeEach
+    public void reinitializeDb() throws IOException {
+        deleteFileIfExists(Path.of(TEST_DB_PATH));
+        db = new JsonDatabase(TEST_DB_PATH);
+    }
+
+    @AfterAll
+    public static void deleteDbFile() throws IOException {
+        deleteFileIfExists(Path.of(TEST_DB_PATH));
+    }
+
     @Test
-    public void testSetGetDelete() throws NoSuchFieldException, IllegalAccessException {
-        final JsonDatabase db = new JsonDatabase();
+    public void testSetGetDelete() throws NoSuchFieldException, IllegalAccessException, IOException {
 
         assertEquals(db.set("key0", "v0"), OK);
         assertEquals(db.get("key0"), formatGet("v0"));
@@ -32,8 +50,8 @@ public class TestJsonDatabase {
 
         assertEquals(db.get("key 1"), formatGet("v with spaces"));
 
-        // use reflection to get private final field "data"
-        Field field = JsonDatabase.class.getDeclaredField("data");
+        // use reflection to get private final field "db"
+        Field field = JsonDatabase.class.getDeclaredField("db");
         field.setAccessible(true);
         JsonObject jsonObject = (JsonObject) field.get(db);
         // add some more data before test
@@ -45,13 +63,13 @@ public class TestJsonDatabase {
 //        System.out.println(field.getType());
 
         assertEquals(jsonObject.toString(), "{\"key 1\":\"v with spaces\",\"key 1000\":\"one thousand\",\"key num unknown\":\"value is unknown too\"}");
+        assertEquals(jsonObject, JsonDbUtils.readDbFromFile(Path.of(TEST_DB_PATH)).getAsJsonObject());
 
         System.out.println("Db data after tests:\n" + field.get(db));
     }
 
     @Test
-    public void testExecuteJson() {
-        final JsonDatabase db = new JsonDatabase();
+    public void testExecuteJson() throws IOException {
 
         assertEquals(db.executeJson(toJson("type", "get", "key", "qwerty")), ERROR_NO_SUCH_KEY);
         assertEquals(db.executeJson(toJson("type", "set", "key", "key a", "value", "the first value")), OK);
@@ -83,5 +101,11 @@ public class TestJsonDatabase {
             jo.addProperty(args[i], args[i + 1]);
         }
         return jo.toString();
+    }
+
+    public static void deleteFileIfExists(Path path) throws IOException {
+        if (Files.exists(path)) {
+            Files.delete(path);
+        }
     }
 }
