@@ -2,29 +2,43 @@ package server;
 
 import com.google.gson.*;
 
+import java.io.IOException;
+import java.nio.file.Path;
+
+import static server.JsonDbUtils.*;
+
 public class JsonDatabase {
     public static final String ERROR_NO_SUCH_KEY = "{\"response\":\"ERROR\",\"reason\":\"No such key\"}";
     public static final String ERROR_INCORRECT_JSON = "{\"response\":\"ERROR\",\"reason\":\"Incorrect JSON\"}";
     public static final String OK = "{\"response\":\"OK\"}";
 
-    private final JsonObject data;
+    private final Path DB_PATH;
+    private final JsonObject db;
 
-    public JsonDatabase() {
-        data = new JsonObject();
+    public JsonDatabase(String dbPath) throws IOException {
+        this.DB_PATH = Path.of(dbPath);
+        createDbIfNotExists(DB_PATH);
+        this.db = readDbFromFile(DB_PATH).getAsJsonObject();
     }
 
-    public String set(String kay, String value) {
-        data.addProperty(kay, value);
+    public String set(String kay, String value) throws IOException {
+        db.addProperty(kay, value);
+        writeDbToFile(db, DB_PATH);
         return OK;
     }
 
     public String get(String kay) {
-        JsonElement value = data.get(kay);
+        JsonElement value = db.get(kay);
         return value != null ? "{\"response\":\"OK\",\"value\":\"" + value.getAsString() + "\"}" : ERROR_NO_SUCH_KEY;
     }
 
-    public String delete(String kay) {
-        return data.remove(kay) != null ? OK : ERROR_NO_SUCH_KEY;
+    public String delete(String kay) throws IOException {
+        JsonElement oldElem = db.remove(kay);
+        if (oldElem == null) {
+            return ERROR_NO_SUCH_KEY;
+        }
+        writeDbToFile(db, DB_PATH);
+        return OK;
     }
 
     /**
@@ -33,7 +47,7 @@ public class JsonDatabase {
      * "{"type":"get","key":"10"}"
      * "{"type":"delete","key":"10"}"
      */
-    public String executeJson(String json) {
+    public String executeJson(String json) throws IOException {
         JsonObject jo;
         String type;
         String key;

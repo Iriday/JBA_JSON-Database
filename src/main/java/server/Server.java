@@ -9,9 +9,9 @@ public class Server {
     public final int PORT;
     private final JsonDatabase database;
 
-    public Server(int PORT) {
+    public Server(int PORT, String dbPath) throws IOException {
         this.PORT = PORT;
-        this.database = new JsonDatabase();
+        this.database = new JsonDatabase(dbPath);
     }
 
     public void run() {
