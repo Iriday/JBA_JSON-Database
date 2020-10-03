@@ -2,17 +2,33 @@ package client;
 
 import com.beust.jcommander.Parameter;
 import com.google.gson.Gson;
+import com.google.gson.JsonParser;
+
+import java.io.IOException;
+import java.io.Reader;
+import java.nio.file.Files;
+import java.nio.file.Path;
 
 public class ClientArgs {
-    @Parameter(names = {"-t"}, description = "request type", required = true, order = 1)
+    @Parameter(names = {"-t"}, description = "request type", /*required = true,*/ order = 0)
     public String type;
-    @Parameter(names = {"-k"}, description = "key", required = true, order = 2)
+    @Parameter(names = {"-k"}, description = "key", order = 1)
     public String key;
-    @Parameter(names = {"-v"}, description = "data to add to db (if type=set)", order = 3)
+    @Parameter(names = {"-v"}, description = "data to add to db (if type=set)", order = 2)
     public String value;
+
+    @Parameter(names = {"-in"}, description = "file name", order = 3)
+    public String fileName;
 
     @Override
     public String toString() {
+        if (fileName != null) {
+            try (Reader reader = Files.newBufferedReader(Path.of("src/main/java/client/data/" + fileName))) {
+                return JsonParser.parseReader(reader).getAsJsonObject().toString();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         return new Gson().toJson(this);
     }
 }
