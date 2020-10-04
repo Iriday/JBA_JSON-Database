@@ -4,6 +4,7 @@ import com.google.gson.*;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.concurrent.locks.ReentrantReadWriteLock;
 
 import static server.JsonDbUtils.*;
 
@@ -15,6 +16,10 @@ public class JsonDatabase {
     private final Path DB_PATH;
     private final JsonObject db;
 
+    private final ReentrantReadWriteLock RReadWriteLock = new ReentrantReadWriteLock(true);
+    private final ReentrantReadWriteLock.ReadLock r = RReadWriteLock.readLock();
+    private final ReentrantReadWriteLock.WriteLock w = RReadWriteLock.writeLock();
+
     public JsonDatabase(String dbPath) throws IOException {
         this.DB_PATH = Path.of(dbPath);
         createDbIfNotExists(DB_PATH);
@@ -22,23 +27,46 @@ public class JsonDatabase {
     }
 
     public String set(String kay, String value) throws IOException {
-        db.addProperty(kay, value);
-        writeDbToFile(db, DB_PATH);
+        w.lock();
+        try {
+            db.addProperty(kay, value);
+            writeDbToFile(db, DB_PATH);
+        } finally {
+            w.unlock();
+        }
+
         return OK;
     }
 
     public String get(String kay) {
-        JsonElement value = db.get(kay);
-        return value != null ? "{\"response\":\"OK\",\"value\":\"" + value.getAsString() + "\"}" : ERROR_NO_SUCH_KEY;
+        String result = null;
+
+        r.lock();
+        try {
+            JsonElement value = db.get(kay);
+            if (value != null) {
+                result = value.getAsString();
+            }
+        } finally {
+            r.unlock();
+        }
+
+        return result != null ? "{\"response\":\"OK\",\"value\":\"" + result + "\"}" : ERROR_NO_SUCH_KEY;
     }
 
-    public String delete(String kay) throws IOException {
-        JsonElement oldElem = db.remove(kay);
-        if (oldElem == null) {
-            return ERROR_NO_SUCH_KEY;
+    public String delete(String key) throws IOException {
+        String result = ERROR_NO_SUCH_KEY;
+        w.lock();
+        try {
+            if (db.remove(key) != null) {
+                writeDbToFile(db, DB_PATH);
+                result = OK;
+            }
+        } finally {
+            w.unlock();
         }
-        writeDbToFile(db, DB_PATH);
-        return OK;
+
+        return result;
     }
 
     /**
