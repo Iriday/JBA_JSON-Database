@@ -1,9 +1,6 @@
 package server;
 
-import com.google.gson.Gson;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
-import com.google.gson.JsonParser;
+import com.google.gson.*;
 
 import java.io.IOException;
 import java.io.Reader;
@@ -28,5 +25,15 @@ public class JsonDbUtils {
         if (!Files.exists(path)) {
             Files.writeString(path, "{}");
         }
+    }
+
+    public static String[] keyToKeys(String key) {
+        if (key.startsWith("[") && key.endsWith("]")) {
+            return new Gson().fromJson(JsonParser.parseString(key).getAsJsonArray(), String[].class);
+        }
+        if (key.startsWith("\"") && key.endsWith("\"")) {
+            key = key.substring(1, key.length() - 1);
+        }
+        return new String[]{key};
     }
 }

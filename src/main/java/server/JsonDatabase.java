@@ -26,10 +26,23 @@ public class JsonDatabase {
         this.db = readDbFromFile(DB_PATH).getAsJsonObject();
     }
 
-    public String set(String kay, String value) throws IOException {
+    public String set(String key, String value) throws IOException {
+        String[] keys = JsonDbUtils.keyToKeys(key);
+        JsonObject temp = db;
+
         w.lock();
         try {
-            db.addProperty(kay, value);
+            for (int i = 0; i < keys.length - 1; i++) {
+                if (!temp.has(keys[i]) || !temp.get(keys[i]).isJsonObject()) {
+                    temp.add(keys[i], new JsonObject());
+                }
+                temp = temp.get(keys[i]).getAsJsonObject();
+            }
+            if (value.startsWith("{") && value.endsWith("}")) {
+                temp.add(keys[keys.length - 1], JsonParser.parseString(value));
+            } else {
+                temp.addProperty(keys[keys.length - 1], value);
+            }
             writeDbToFile(db, DB_PATH);
         } finally {
             w.unlock();
@@ -38,35 +51,49 @@ public class JsonDatabase {
         return OK;
     }
 
-    public String get(String kay) {
-        String result = null;
+    public String get(String key) {
+        String[] keys = JsonDbUtils.keyToKeys(key);
+        JsonObject temp = db;
 
         r.lock();
         try {
-            JsonElement value = db.get(kay);
-            if (value != null) {
-                result = value.getAsString();
+            for (int i = 0; i < keys.length - 1; i++) {
+                JsonElement je = temp.get(keys[i]);
+                if (je == null) {
+                    return ERROR_NO_SUCH_KEY;
+                }
+                temp = je.getAsJsonObject();
             }
+
+            JsonElement value = temp.get(keys[keys.length - 1]);
+            return value != null ? "{\"response\":\"OK\",\"value\":" + value.toString() + "}" : ERROR_NO_SUCH_KEY;
         } finally {
             r.unlock();
         }
-
-        return result != null ? "{\"response\":\"OK\",\"value\":\"" + result + "\"}" : ERROR_NO_SUCH_KEY;
     }
 
     public String delete(String key) throws IOException {
-        String result = ERROR_NO_SUCH_KEY;
+        String[] keys = JsonDbUtils.keyToKeys(key);
+        JsonObject temp = db;
+
         w.lock();
         try {
-            if (db.remove(key) != null) {
+            for (int i = 0; i < keys.length - 1; i++) {
+                JsonElement je = temp.get(keys[i]);
+                if (je == null) {
+                    return ERROR_NO_SUCH_KEY;
+                }
+                temp = je.getAsJsonObject();
+            }
+
+            if (temp.remove(keys[keys.length - 1]) != null) {
                 writeDbToFile(db, DB_PATH);
-                result = OK;
+                return OK;
             }
         } finally {
             w.unlock();
         }
-
-        return result;
+        return ERROR_NO_SUCH_KEY;
     }
 
     /**
@@ -83,9 +110,17 @@ public class JsonDatabase {
         try {
             jo = JsonParser.parseString(json).getAsJsonObject();
             type = jo.get("type").getAsString();
-            key = jo.get("key").getAsString();
+            JsonElement k = jo.get("key");
+            key = k.isJsonArray() ? k.getAsJsonArray().toString() : k.getAsString();
             if (type.equals("set")) {
-                value = jo.get("value").getAsString();
+                JsonElement v = jo.get("value");
+                if (v.isJsonObject()) {
+                    value = v.getAsJsonObject().toString();
+                } else if (v.isJsonArray()) {
+                    value = v.getAsJsonArray().toString();
+                } else {
+                    value = v.getAsString();
+                }
             }
         } catch (IllegalStateException | NullPointerException | JsonSyntaxException e) {
             return ERROR_INCORRECT_JSON;
